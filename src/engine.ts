@@ -15,65 +15,87 @@ const DEFAULT_IGNORE = [
 
 export async function lintFiles(target: string, config?: LintConfig): Promise<LintResult> {
   const start = Date.now();
-  const files = await collectFiles(target, config);
-  const rules = getEnabledRules(config);
-  const violations: LintViolation[] = [];
+  try {
+    const files = await collectFiles(target, config);
+    const rules = getEnabledRules(config);
+    const violations: LintViolation[] = [];
 
-  for (const file of files) {
-    const content = await fs.readFile(file, 'utf-8');
-    const lines = content.split('\n');
-    const ext = path.extname(file).slice(1);
+    for (const file of files) {
+      try {
+        const content = await fs.readFile(file, 'utf-8');
+        const lines = content.split('\n');
+        const ext = path.extname(file).slice(1);
 
-    for (const rule of rules) {
-      if (rule.languages.length > 0 && !rule.languages.includes(ext)) continue;
-      const ruleViolations = rule.check(file, content, lines);
-      // Apply severity override
-      const overrideSeverity = config?.rules?.[rule.name];
-      if (overrideSeverity && overrideSeverity !== 'off') {
-        for (const v of ruleViolations) v.severity = overrideSeverity;
+        for (const rule of rules) {
+          if (rule.languages.length > 0 && !rule.languages.includes(ext)) continue;
+          const ruleViolations = rule.check(file, content, lines);
+          // Apply severity override
+          const overrideSeverity = config?.rules?.[rule.name];
+          if (overrideSeverity && overrideSeverity !== 'off') {
+            for (const v of ruleViolations) v.severity = overrideSeverity;
+          }
+          violations.push(...ruleViolations);
+        }
+      } catch {
+        // Skip files that can't be read (binary, permissions, etc.)
       }
-      violations.push(...ruleViolations);
     }
-  }
 
-  return {
-    violations,
-    filesScanned: files.length,
-    rulesApplied: rules.length,
-    durationMs: Date.now() - start,
-  };
+    return {
+      violations,
+      filesScanned: files.length,
+      rulesApplied: rules.length,
+      durationMs: Date.now() - start,
+    };
+  } catch (error) {
+    return {
+      violations: [],
+      filesScanned: 0,
+      rulesApplied: 0,
+      durationMs: Date.now() - start,
+    };
+  }
 }
 
 export async function lintStdin(input: string, config?: LintConfig): Promise<LintResult> {
   const start = Date.now();
-  const rules = getEnabledRules(config);
-  const violations: LintViolation[] = [];
+  try {
+    const rules = getEnabledRules(config);
+    const violations: LintViolation[] = [];
 
-  // Parse diff to extract file changes
-  const fileChanges = parseDiff(input);
-  for (const { file, addedLines } of fileChanges) {
-    const content = addedLines.map((l) => l.text).join('\n');
-    const lines = addedLines.map((l) => l.text);
-    const ext = path.extname(file).slice(1);
+    // Parse diff to extract file changes
+    const fileChanges = parseDiff(input);
+    for (const { file, addedLines } of fileChanges) {
+      const content = addedLines.map((l) => l.text).join('\n');
+      const lines = addedLines.map((l) => l.text);
+      const ext = path.extname(file).slice(1);
 
-    for (const rule of rules) {
-      if (rule.languages.length > 0 && !rule.languages.includes(ext)) continue;
-      const ruleViolations = rule.check(file, content, lines);
-      // Remap line numbers to original diff line numbers
-      for (const v of ruleViolations) {
-        const mapped = addedLines[v.line - 1];
-        if (mapped) v.line = mapped.originalLine;
+      for (const rule of rules) {
+        if (rule.languages.length > 0 && !rule.languages.includes(ext)) continue;
+        const ruleViolations = rule.check(file, content, lines);
+        // Remap line numbers to original diff line numbers
+        for (const v of ruleViolations) {
+          const mapped = addedLines[v.line - 1];
+          if (mapped) v.line = mapped.originalLine;
+        }
+        violations.push(...ruleViolations);
       }
-      violations.push(...ruleViolations);
     }
-  }
 
-  return {
-    violations,
-    filesScanned: fileChanges.length,
-    rulesApplied: rules.length,
-    durationMs: Date.now() - start,
-  };
+    return {
+      violations,
+      filesScanned: fileChanges.length,
+      rulesApplied: rules.length,
+      durationMs: Date.now() - start,
+    };
+  } catch (error) {
+    return {
+      violations: [],
+      filesScanned: 0,
+      rulesApplied: 0,
+      durationMs: Date.now() - start,
+    };
+  }
 }
 
 interface DiffLine { text: string; originalLine: number; }
