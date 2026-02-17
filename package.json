@@ -1,0 +1,31 @@
+{
+  "name": "agentlint",
+  "version": "0.1.0",
+  "description": "Static analysis for agent-generated code. Catches code smells that coding agents consistently produce.",
+  "type": "module",
+  "bin": {
+    "agentlint": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["agent", "lint", "ai", "coding-agent", "static-analysis", "code-quality"],
+  "author": "Alex Melges <alexmelges@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexmelges/agentlint.git"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": ["dist", "README.md", "LICENSE"]
+}
