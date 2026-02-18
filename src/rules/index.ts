@@ -19,6 +19,19 @@ import { missingTypes } from './missing-types.js';
 import { sqlInjection } from './sql-injection.js';
 import { overlyPermissive } from './overly-permissive.js';
 import { resourceLeak } from './resource-leak.js';
+// Go rules
+import { goErrorIgnored } from './go-error-ignored.js';
+import { goDeferInLoop } from './go-defer-in-loop.js';
+import { goGoroutineLeak } from './go-goroutine-leak.js';
+import { goNilCheckMissing } from './go-nil-check-missing.js';
+import { goBareReturn } from './go-bare-return.js';
+import { goInitFunction } from './go-init-function.js';
+// Rust rules
+import { rustUnwrap } from './rust-unwrap.js';
+import { rustUnsafeBlock } from './rust-unsafe-block.js';
+import { rustCloneHeavy } from './rust-clone-heavy.js';
+import { rustTodoMacro } from './rust-todo-macro.js';
+import { rustPanic } from './rust-panic.js';
 
 export const allRules: LintRule[] = [
   hardcodedPaths,
@@ -41,4 +54,17 @@ export const allRules: LintRule[] = [
   sqlInjection,
   overlyPermissive,
   resourceLeak,
+  // Go rules
+  goErrorIgnored,
+  goDeferInLoop,
+  goGoroutineLeak,
+  goNilCheckMissing,
+  goBareReturn,
+  goInitFunction,
+  // Rust rules
+  rustUnwrap,
+  rustUnsafeBlock,
+  rustCloneHeavy,
+  rustTodoMacro,
+  rustPanic,
 ];

@@ -3,11 +3,12 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { lintFiles, lintStdin } from './engine.js';
+import { applyFixes } from './fixer.js';
 import { formatHuman, formatJSON, formatSARIF } from './formatter.js';
 import type { LintConfig } from './types.js';
 
 /** Number of built-in lint rules. */
-const RULE_COUNT = 20;
+const RULE_COUNT = 31;
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -19,7 +20,7 @@ async function main(): Promise<void> {
 
   if (args.includes('--version') || args.includes('-v')) {
     // eslint-disable-next-line no-console
-    console.log('agentlint 0.6.0');
+    console.log('agentlint 0.7.0');
     process.exit(0);
   }
 
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   const isJSON = args.includes('--json');
   const isSARIF = args.includes('--sarif');
   const errorsOnly = args.includes('--errors-only');
+  const isFix = args.includes('--fix');
 
   // Load config from --config flag or default .agentlintrc.json
   const config = await loadConfig(args);
@@ -44,6 +46,14 @@ async function main(): Promise<void> {
 
   const target = args.find((a) => !a.startsWith('-') && args.indexOf(a) !== args.indexOf('--config') + 1) ?? '.';
   const resolved = path.resolve(target);
+
+  if (isFix) {
+    const fixResult = await applyFixes(resolved, config);
+    // eslint-disable-next-line no-console
+    console.log(fixResult);
+    process.exit(0);
+  }
+
   const result = await lintFiles(resolved, config);
 
   if (errorsOnly) {
@@ -97,6 +107,7 @@ Usage:
   agentlint . --json                Output JSON format
   agentlint . --sarif               Output SARIF 2.1.0 (GitHub Security tab)
   agentlint . --errors-only         Only show errors
+  agentlint . --fix                 Auto-fix supported violations in-place
   agentlint . --config custom.json  Use custom config file
 
 Options:
@@ -104,6 +115,7 @@ Options:
   --json         Output JSON instead of human-readable format
   --sarif        Output SARIF 2.1.0 for GitHub Security tab
   --errors-only  Only report errors (skip warnings and info)
+  --fix          Auto-fix supported violations (console-log, todo-fixme, empty-catch, any-type)
   --config <path>  Path to config file (default: .agentlintrc.json)
   -h, --help     Show this help message
   -v, --version  Show version
@@ -124,15 +136,15 @@ Rules (${RULE_COUNT}):
   no-hardcoded-urls     Hardcoded localhost URLs and ports
   no-unhandled-async    Async without try/catch or .catch()
   no-credential-leak    Hardcoded credentials and API keys
-  no-console-log        console.log instead of structured logging
+  no-console-log        console.log instead of structured logging          [fixable]
   no-unbounded-query    Database queries without pagination
   no-input-validation   HTTP handlers without input validation
   no-retry-logic        HTTP calls without retry/backoff
-  no-todo-fixme         TODO/FIXME comments left by agents
+  no-todo-fixme         TODO/FIXME comments left by agents                 [fixable]
   no-sync-fs            Synchronous file system operations
   no-magic-numbers      Magic numbers without named constants
-  no-empty-catch        Empty catch blocks that swallow errors
-  no-any-type           Usage of \`any\` type in TypeScript
+  no-empty-catch        Empty catch blocks that swallow errors             [fixable]
+  no-any-type           Usage of \`any\` type in TypeScript                  [fixable]
   no-timeout            Network calls without timeout
   unsafe-eval           eval(), new Function(), setTimeout with string
   unbounded-loop        while(true)/for(;;) without break
@@ -140,6 +152,21 @@ Rules (${RULE_COUNT}):
   sql-injection         SQL queries built via string concat/template
   overly-permissive     Wildcard CORS, chmod 777, TLS disabled
   resource-leak         Streams/connections without close
+
+  Go rules:
+  go-error-ignored      Ignoring error return values with _ or unchecked
+  go-defer-in-loop      defer inside for loops (resource leak)
+  go-goroutine-leak     Goroutines without sync/context cancellation
+  go-nil-check-missing  Pointer dereference without nil check after err
+  go-bare-return        Naked return in functions with named returns
+  go-init-function      init() functions (hidden initialization)
+
+  Rust rules:
+  rust-unwrap           .unwrap() calls outside of tests
+  rust-unsafe-block     unsafe blocks without SAFETY comments
+  rust-clone-heavy      Excessive .clone() calls (AI over-clones)
+  rust-todo-macro       todo!() and unimplemented!() macros left in code
+  rust-panic            panic!() in library code (non-main, non-test)
 `);
 }
 

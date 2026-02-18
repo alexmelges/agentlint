@@ -1,4 +1,4 @@
-import type { LintRule, LintViolation } from '../types.js';
+import type { LintRule, LintViolation, LintFix } from '../types.js';
 
 export const consoleLog: LintRule = {
   name: 'no-console-log',
@@ -24,5 +24,17 @@ export const consoleLog: LintRule = {
       }
     }
     return violations;
+  },
+  fix(file, content, lines) {
+    const fixes: LintFix[] = [];
+    if (/\.(test|spec)\.[a-z]+$/.test(file)) return fixes;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trimStart().startsWith('//')) continue;
+      if (/console\.(log|warn|error|info|debug)\s*\(/.test(line)) {
+        fixes.push({ file, line: i + 1, oldText: lines[i], newText: '' });
+      }
+    }
+    return fixes;
   },
 };

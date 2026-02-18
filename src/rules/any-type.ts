@@ -1,4 +1,4 @@
-import type { LintRule, LintViolation } from '../types.js';
+import type { LintRule, LintViolation, LintFix } from '../types.js';
 
 export const anyType: LintRule = {
   name: 'no-any-type',
@@ -26,5 +26,23 @@ export const anyType: LintRule = {
       }
     }
     return violations;
+  },
+  fix(file, content, lines) {
+    const fixes: LintFix[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trimStart().startsWith('//')) continue;
+      if (/(?::\s*any\b|as\s+any\b|<any>|any\[\])/.test(line)) {
+        let fixed = line;
+        fixed = fixed.replace(/:\s*any\b/g, ': unknown');
+        fixed = fixed.replace(/as\s+any\b/g, 'as unknown');
+        fixed = fixed.replace(/<any>/g, '<unknown>');
+        fixed = fixed.replace(/any\[\]/g, 'unknown[]');
+        if (fixed !== line) {
+          fixes.push({ file, line: i + 1, oldText: line, newText: fixed });
+        }
+      }
+    }
+    return fixes;
   },
 };

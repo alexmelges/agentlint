@@ -1,6 +1,6 @@
 {
   "name": "@alexmelges/agentlint",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Static analysis for agent-generated code. Catches code smells that coding agents consistently produce.",
   "type": "module",
   "bin": {

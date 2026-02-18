@@ -1,4 +1,4 @@
-import type { LintRule, LintViolation } from '../types.js';
+import type { LintRule, LintViolation, LintFix } from '../types.js';
 
 export const emptyCatch: LintRule = {
   name: 'no-empty-catch',
@@ -21,5 +21,18 @@ export const emptyCatch: LintRule = {
       });
     }
     return violations;
+  },
+  fix(file, content, lines) {
+    const fixes: LintFix[] = [];
+    const pattern = /catch\s*\(([^)]*)\)\s*\{\s*\}/g;
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const line = content.slice(0, match.index).split('\n').length;
+      const param = match[1].trim() || 'e';
+      const oldText = match[0];
+      const newText = `catch (${param}) { /* TODO: handle error */ }`;
+      fixes.push({ file, line, oldText, newText });
+    }
+    return fixes;
   },
 };

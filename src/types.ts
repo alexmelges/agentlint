@@ -10,12 +10,20 @@ export interface LintViolation {
   snippet?: string;
 }
 
+export interface LintFix {
+  file: string;
+  line: number;
+  oldText: string;
+  newText: string;
+}
+
 export interface LintRule {
   name: string;
   description: string;
   severity: Severity;
   languages: string[];
   check(file: string, content: string, lines: string[]): LintViolation[];
+  fix?(file: string, content: string, lines: string[]): LintFix[];
 }
 
 export interface LintResult {

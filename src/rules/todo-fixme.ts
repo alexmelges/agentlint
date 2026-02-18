@@ -1,4 +1,4 @@
-import type { LintRule, LintViolation } from '../types.js';
+import type { LintRule, LintViolation, LintFix } from '../types.js';
 
 export const todoFixme: LintRule = {
   name: 'no-todo-fixme',
@@ -24,5 +24,16 @@ export const todoFixme: LintRule = {
       }
     }
     return violations;
+  },
+  fix(file, content, lines) {
+    const fixes: LintFix[] = [];
+    const pattern = /\b(TODO|FIXME|HACK|XXX|TEMP|TEMPORARY)\b/g;
+    for (let i = 0; i < lines.length; i++) {
+      pattern.lastIndex = 0;
+      if (pattern.test(lines[i])) {
+        fixes.push({ file, line: i + 1, oldText: lines[i], newText: '' });
+      }
+    }
+    return fixes;
   },
 };
