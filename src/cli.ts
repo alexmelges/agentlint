@@ -3,11 +3,11 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { lintFiles, lintStdin } from './engine.js';
-import { formatHuman, formatJSON } from './formatter.js';
+import { formatHuman, formatJSON, formatSARIF } from './formatter.js';
 import type { LintConfig } from './types.js';
 
 /** Number of built-in lint rules. */
-const RULE_COUNT = 14;
+const RULE_COUNT = 20;
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -19,12 +19,13 @@ async function main(): Promise<void> {
 
   if (args.includes('--version') || args.includes('-v')) {
     // eslint-disable-next-line no-console
-    console.log('agentlint 0.4.0');
+    console.log('agentlint 0.6.0');
     process.exit(0);
   }
 
   const isStdin = args.includes('--stdin');
   const isJSON = args.includes('--json');
+  const isSARIF = args.includes('--sarif');
   const errorsOnly = args.includes('--errors-only');
 
   // Load config from --config flag or default .agentlintrc.json
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
       result.violations = result.violations.filter((v) => v.severity === 'error');
     }
     // eslint-disable-next-line no-console
-    console.log(isJSON ? formatJSON(result) : formatHuman(result));
+    console.log(isSARIF ? formatSARIF(result) : isJSON ? formatJSON(result) : formatHuman(result));
     process.exit(result.violations.some((v) => v.severity === 'error') ? 1 : 0);
   }
 
@@ -50,7 +51,7 @@ async function main(): Promise<void> {
   }
 
   // eslint-disable-next-line no-console
-  console.log(isJSON ? formatJSON(result) : formatHuman(result));
+  console.log(isSARIF ? formatSARIF(result) : isJSON ? formatJSON(result) : formatHuman(result));
   process.exit(result.violations.some((v) => v.severity === 'error') ? 1 : 0);
 }
 
@@ -94,12 +95,14 @@ Usage:
   agentlint [path]                  Scan a directory or file
   git diff | agentlint --stdin      Lint a git diff
   agentlint . --json                Output JSON format
+  agentlint . --sarif               Output SARIF 2.1.0 (GitHub Security tab)
   agentlint . --errors-only         Only show errors
   agentlint . --config custom.json  Use custom config file
 
 Options:
   --stdin        Read from stdin (expects unified diff format)
   --json         Output JSON instead of human-readable format
+  --sarif        Output SARIF 2.1.0 for GitHub Security tab
   --errors-only  Only report errors (skip warnings and info)
   --config <path>  Path to config file (default: .agentlintrc.json)
   -h, --help     Show this help message
@@ -131,6 +134,12 @@ Rules (${RULE_COUNT}):
   no-empty-catch        Empty catch blocks that swallow errors
   no-any-type           Usage of \`any\` type in TypeScript
   no-timeout            Network calls without timeout
+  unsafe-eval           eval(), new Function(), setTimeout with string
+  unbounded-loop        while(true)/for(;;) without break
+  missing-types         TS functions without return type annotations
+  sql-injection         SQL queries built via string concat/template
+  overly-permissive     Wildcard CORS, chmod 777, TLS disabled
+  resource-leak         Streams/connections without close
 `);
 }
 

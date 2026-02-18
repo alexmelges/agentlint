@@ -1,0 +1,95 @@
+name: 'AgentLint'
+description: 'Static analysis for agent-generated code. Catches AI coding smells before they reach production.'
+author: 'Alex Melges'
+
+branding:
+  icon: 'shield'
+  color: 'orange'
+
+inputs:
+  path:
+    description: 'Path to scan (file or directory)'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to config file (.agentlintrc.json)'
+    required: false
+  errors-only:
+    description: 'Only report errors (skip warnings and info)'
+    required: false
+    default: 'false'
+  sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+  fail-on-error:
+    description: 'Fail the workflow if errors are found'
+    required: false
+    default: 'true'
+
+outputs:
+  total:
+    description: 'Total number of violations found'
+  errors:
+    description: 'Number of errors found'
+  warnings:
+    description: 'Number of warnings found'
+  sarif-file:
+    description: 'Path to SARIF output file'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install AgentLint
+      shell: bash
+      run: npm install -g @alexmelges/agentlint@latest
+
+    - name: Run AgentLint
+      id: lint
+      shell: bash
+      run: |
+        ARGS="${{ inputs.path }}"
+        if [ -n "${{ inputs.config }}" ]; then
+          ARGS="$ARGS --config ${{ inputs.config }}"
+        fi
+        if [ "${{ inputs.errors-only }}" = "true" ]; then
+          ARGS="$ARGS --errors-only"
+        fi
+
+        # Generate SARIF
+        agentlint $ARGS --sarif > ${{ runner.temp }}/agentlint.sarif 2>/dev/null || true
+        echo "sarif-file=${{ runner.temp }}/agentlint.sarif" >> $GITHUB_OUTPUT
+
+        # Generate JSON for outputs
+        JSON=$(agentlint $ARGS --json 2>/dev/null || true)
+        TOTAL=$(echo "$JSON" | jq -r '.summary.total // 0')
+        ERRORS=$(echo "$JSON" | jq -r '.summary.errors // 0')
+        WARNINGS=$(echo "$JSON" | jq -r '.summary.warnings // 0')
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+        echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+        echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+
+        # Human-readable output
+        agentlint $ARGS || true
+
+    - name: Upload SARIF
+      if: inputs.sarif == 'true' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.lint.outputs.sarif-file }}
+        category: agentlint
+      continue-on-error: true
+
+    - name: Check for failures
+      if: inputs.fail-on-error == 'true'
+      shell: bash
+      run: |
+        if [ "${{ steps.lint.outputs.errors }}" -gt 0 ]; then
+          echo "::error::AgentLint found ${{ steps.lint.outputs.errors }} error(s)"
+          exit 1
+        fi

@@ -1,4 +1,5 @@
-import type { LintResult, LintViolation, Severity } from './types.js';
+import type { LintResult, LintViolation, LintRule, Severity } from './types.js';
+import { allRules } from './rules/index.js';
 
 const SEVERITY_COLORS: Record<Severity, string> = {
   error: '\x1b[31m',
@@ -66,4 +67,85 @@ export function formatJSON(result: LintResult): string {
       durationMs: result.durationMs,
     },
   }, null, 2);
+}
+
+const SEVERITY_TO_SARIF: Record<Severity, string> = {
+  error: 'error',
+  warning: 'warning',
+  info: 'note',
+};
+
+export function formatSARIF(result: LintResult): string {
+  const ruleMap = new Map<string, LintRule>();
+  for (const r of allRules) ruleMap.set(r.name, r);
+
+  // Collect unique rule ids from violations
+  const usedRules = [...new Set(result.violations.map((v) => v.rule))];
+
+  const sarifRules = usedRules.map((id, index) => {
+    const rule = ruleMap.get(id);
+    return {
+      id,
+      name: id,
+      shortDescription: { text: rule?.description ?? id },
+      defaultConfiguration: {
+        level: SEVERITY_TO_SARIF[rule?.severity ?? 'warning'],
+      },
+      properties: {
+        tags: rule?.languages?.length ? rule.languages : ['general'],
+      },
+    };
+  });
+
+  const ruleIndex = new Map<string, number>();
+  usedRules.forEach((id, i) => ruleIndex.set(id, i));
+
+  const results = result.violations.map((v) => ({
+    ruleId: v.rule,
+    ruleIndex: ruleIndex.get(v.rule) ?? 0,
+    level: SEVERITY_TO_SARIF[v.severity],
+    message: { text: v.message },
+    locations: [
+      {
+        physicalLocation: {
+          artifactLocation: { uri: v.file.replace(/^\//, ''), uriBaseId: '%SRCROOT%' },
+          region: {
+            startLine: v.line,
+            startColumn: v.column ?? 1,
+          },
+        },
+      },
+    ],
+    ...(v.snippet ? { properties: { snippet: v.snippet } } : {}),
+  }));
+
+  const sarif = {
+    version: '2.1.0',
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: 'agentlint',
+            version: '0.6.0',
+            informationUri: 'https://github.com/alexmelges/agentlint',
+            rules: sarifRules,
+          },
+        },
+        results,
+        invocations: [
+          {
+            executionSuccessful: true,
+            properties: {
+              filesScanned: result.filesScanned,
+              rulesApplied: result.rulesApplied,
+              durationMs: result.durationMs,
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  return JSON.stringify(sarif, null, 2);
 }
