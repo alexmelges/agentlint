@@ -13,6 +13,12 @@ import { magicNumbers } from './magic-numbers.js';
 import { emptyCatch } from './empty-catch.js';
 import { anyType } from './any-type.js';
 import { noTimeout } from './no-timeout.js';
+import { unsafeEval } from './unsafe-eval.js';
+import { unboundedLoop } from './unbounded-loop.js';
+import { missingTypes } from './missing-types.js';
+import { sqlInjection } from './sql-injection.js';
+import { overlyPermissive } from './overly-permissive.js';
+import { resourceLeak } from './resource-leak.js';
 
 export const allRules: LintRule[] = [
   hardcodedPaths,
@@ -29,4 +35,10 @@ export const allRules: LintRule[] = [
   emptyCatch,
   anyType,
   noTimeout,
+  unsafeEval,
+  unboundedLoop,
+  missingTypes,
+  sqlInjection,
+  overlyPermissive,
+  resourceLeak,
 ];
